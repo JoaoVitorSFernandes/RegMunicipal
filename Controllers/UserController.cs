@@ -1,5 +1,7 @@
 using DesafioBalta.Data;
 using DesafioBalta.Models;
+using DesafioBalta.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,52 +11,81 @@ namespace DesafioBalta.Controllers
     [Route("user/")]
     public class UserController : ControllerBase
     {
+        private TokenServices _tokenService = new TokenServices();
+
         [HttpGet]
-        [Route("{emailuser}&{password}")]
+        [Authorize(Roles = "manager")]
         public async Task<ActionResult> GetAsync(
-            [FromRoute] string emailuser,
-            [FromRoute] string password,
+            [FromServices] DataContext context)
+            => Ok(context.Users.AsNoTracking().ToList());
+
+        [HttpPost]
+        [Route("SingUp")]
+        public async Task<ActionResult<dynamic>> Authenticate(
+            [FromBody] User model,
             [FromServices] DataContext context)
         {
             var user = context
                         .Users
                         .AsNoTracking()
-                        .FirstOrDefault(x => x.Email == emailuser && x.Password == password);
+                        .FirstOrDefault(x => x.Email == model.Email
+                                    || x.ProfileName == model.ProfileName
+                                    && x.Password == model.Password);
 
             if (user == null)
-                user = context
-                        .Users
-                        .AsNoTracking()
-                        .FirstOrDefault(x => x.ProfileName == emailuser && x.Password == password);
+                return BadRequest(new { message = "Usuario ou senha invalidos" });
 
-            if(user == null)
-                return BadRequest(new {message = "Email ou Senha Invalidados"});
+            var token = _tokenService.GenerateToken(user);
 
-            return Ok(user);
+            user.Password = "";
+
+            return Ok(new
+            {
+                user = user,
+                token = token
+            });
         }
 
-
         [HttpPost]
-        public async Task<ActionResult> PostAsync(
-            [FromBody] User user,
+        [Route("SingIn")]
+        public async Task<ActionResult<dynamic>> PostAsync(
+            [FromBody] User model,
             [FromServices] DataContext context)
         {
-            context.Users.Add(user);
+            var user = context
+                        .Users
+                        .AsNoTracking()
+                        .FirstOrDefault(x => x.Email == model.Email
+                                    || x.ProfileName == model.ProfileName
+                                    && x.Password == model.Password);
+
+            if (user != null)
+                return BadRequest(new { message = "Usuario já existe" });
+
+            var token = _tokenService.GenerateToken(model);
+
+            context.Users.Add(model);
             context.SaveChanges();
 
-            return Created($"{user.Id}", user);
+            model.Password = "";
+
+            return Created($"{user.Id}", new 
+                    { user = user, 
+                    token = token}
+            );
         }
 
         [HttpPut]
+        [Authorize(Roles = "manager, employee")]
         public async Task<ActionResult> UpdateAsync(
             [FromBody] User model,
             [FromServices] DataContext context)
-        {   
+        {
             var user = context
                         .Users
                         .AsNoTracking()
                         .FirstOrDefault(x => x.Id == model.Id);
-            
+
             if (user == null)
                 return BadRequest(new { message = "Não foram encontradas informações em nosso banco" });
 
@@ -62,12 +93,13 @@ namespace DesafioBalta.Controllers
             context.SaveChanges();
 
             model.Password = "";
-            
+
             return Ok(model);
         }
 
         [HttpDelete]
         [Route("{id:int}")]
+        [Authorize(Roles = "manager, employee")]
         public async Task<ActionResult> DeleteAsync(
             [FromRoute] int id,
             [FromServices] DataContext context)

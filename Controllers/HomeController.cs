@@ -1,5 +1,6 @@
 using DesafioBalta.Data;
 using DesafioBalta.Models;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,11 +11,12 @@ namespace DesafioBalta.Controllers
     public class HomeController : ControllerBase
     {
         [HttpGet]
+        [Authorize]
         public async Task<IActionResult> GetAsync([FromServices] DataContext context)
             => Ok(context.IBGEs.AsNoTracking().ToList());
 
-
         [HttpPost]
+        [Authorize(Roles = "manager")]
         public async Task<IActionResult> PostAsync(
             [FromBody] IBGE ibge,
             [FromServices] DataContext context)
@@ -30,6 +32,7 @@ namespace DesafioBalta.Controllers
 
 
         [HttpPut]
+        [Authorize(Roles = "manager")]
         public async Task<IActionResult> PutAsync(
             [FromBody] IBGE model,
             [FromServices] DataContext context)
@@ -54,6 +57,7 @@ namespace DesafioBalta.Controllers
 
         [HttpDelete]
         [Route("{id}")]
+        [Authorize(Roles = "manager")]
         public async Task<IActionResult> DeleteAsync(
             [FromRoute] string id,
             [FromServices] DataContext context)
@@ -75,6 +79,7 @@ namespace DesafioBalta.Controllers
 
         [HttpGet]
         [Route("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetByIdAsync(
             [FromRoute] string id,
             [FromServices] DataContext context)
@@ -93,6 +98,7 @@ namespace DesafioBalta.Controllers
 
         [HttpGet]
         [Route("city/{city}")]
+        [Authorize]
         public async Task<ActionResult> GetByCityAsync(
             [FromRoute] string city,
             [FromServices] DataContext context)
@@ -112,6 +118,7 @@ namespace DesafioBalta.Controllers
 
         [HttpGet]
         [Route("state/{state}")]
+        [Authorize]
         public async Task<ActionResult> GetByStateAsycn(
             [FromRoute] string state,
             [FromServices] DataContext context)
